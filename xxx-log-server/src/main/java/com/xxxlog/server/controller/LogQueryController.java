@@ -48,6 +48,11 @@ public class LogQueryController {
         return ApiResponse.ok(logQueryService.listAppNames());
     }
 
+    @GetMapping("/envs")
+    public ApiResponse<List<String>> envs() {
+        return ApiResponse.ok(logQueryService.listEnvs());
+    }
+
     @GetMapping("/queue/stats")
     public ApiResponse<QueueStatsDto> queueStats() {
         return ApiResponse.ok(queueStatsService.getStats());

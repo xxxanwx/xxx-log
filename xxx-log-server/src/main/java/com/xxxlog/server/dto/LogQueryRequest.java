@@ -20,6 +20,8 @@ public class LogQueryRequest {
     private int size = 50;
     /** 时间排序：asc 正序，desc 倒序（默认） */
     private String sortOrder = "desc";
+    /** search_after 游标，用于深度分页 */
+    private List<Object> searchAfter;
 
     public String getAppName() {
         return appName;
@@ -115,5 +117,13 @@ public class LogQueryRequest {
 
     public void setSortOrder(String sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public List<Object> getSearchAfter() {
+        return searchAfter;
+    }
+
+    public void setSearchAfter(List<Object> searchAfter) {
+        this.searchAfter = searchAfter;
     }
 }

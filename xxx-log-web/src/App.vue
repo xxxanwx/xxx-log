@@ -4,14 +4,28 @@
       <div class="header-left">
         <div class="logo">xxx-log</div>
         <div class="subtitle">分布式日志查询平台</div>
+        <nav class="nav-links">
+          <router-link to="/logs" class="nav-link" active-class="nav-link-active">日志查询</router-link>
+          <router-link to="/dashboard" class="nav-link" active-class="nav-link-active">仪表盘</router-link>
+        </nav>
       </div>
       <div v-if="username" class="header-right">
+        <div v-if="health" class="health-panel">
+          <span class="health-item" :class="healthClass(health.es)" title="Elasticsearch">ES</span>
+          <span class="health-item" :class="healthClass(health.redis)" title="Redis">Redis</span>
+          <span
+            v-if="health.rabbitmq !== 'N/A'"
+            class="health-item"
+            :class="healthClass(health.rabbitmq)"
+            title="RabbitMQ"
+          >MQ</span>
+        </div>
         <div v-if="queueStats" class="queue-stats-panel" :class="queueLevelClass">
           <span class="queue-item queue-total">待处理 <strong>{{ queueStats.totalPending }}</strong></span>
           <span class="queue-divider">|</span>
           <span class="queue-item">队列({{ queueStats.queueType }}) {{ queueStats.queuePending }}</span>
           <span class="queue-divider">|</span>
-          <span class="queue-item">写入缓冲 {{ queueStats.bufferPending }}</span>
+          <span class="queue-item">消费失败 {{ queueStats.consumeFailCount || 0 }}</span>
           <span class="queue-divider">|</span>
           <span class="queue-item queue-name">{{ queueStats.queueName }}</span>
         </div>
@@ -32,13 +46,14 @@ import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { clearAuth, getUsername, isLoggedIn } from './utils/auth'
-import { logout, getQueueStats } from './api/log'
+import { logout, getQueueStats, getHealth } from './api/log'
 import LogIndexManageDialog from './components/LogIndexManageDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const username = ref(getUsername())
 const queueStats = ref(null)
+const health = ref(null)
 const indexManageVisible = ref(false)
 let queueTimer = null
 
@@ -49,14 +64,25 @@ const queueLevelClass = computed(() => {
     return ''
   }
   const total = queueStats.value.totalPending
-  if (total >= 1000) {
+  const threshold = queueStats.value.threshold || 1000
+  if (queueStats.value.backlogAlert || total >= threshold) {
     return 'queue-danger'
   }
-  if (total >= 100) {
+  if (total >= threshold * 0.1) {
     return 'queue-warn'
   }
   return 'queue-normal'
 })
+
+function healthClass(status) {
+  if (status === 'UP') {
+    return 'health-up'
+  }
+  if (status === 'N/A') {
+    return 'health-na'
+  }
+  return 'health-down'
+}
 
 watch(() => route.path, () => {
   username.value = getUsername()
@@ -68,7 +94,9 @@ async function refreshQueueStats() {
     return
   }
   try {
-    queueStats.value = await getQueueStats()
+    const [stats, healthStatus] = await Promise.all([getQueueStats(), getHealth()])
+    queueStats.value = stats
+    health.value = healthStatus
   } catch (e) {
     // 轮询失败不打断页面，保留上次数值
   }
@@ -84,6 +112,7 @@ function syncQueuePolling() {
     queueTimer = setInterval(refreshQueueStats, 5000)
   } else {
     queueStats.value = null
+    health.value = null
   }
 }
 
@@ -138,6 +167,23 @@ body {
   align-items: center;
   gap: 16px;
 }
+.nav-links {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.nav-link {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+.nav-link:hover,
+.nav-link-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
 .header-right {
   display: flex;
   align-items: center;
@@ -152,6 +198,26 @@ body {
 .subtitle {
   font-size: 13px;
   opacity: 0.85;
+}
+.health-panel {
+  display: flex;
+  gap: 6px;
+}
+.health-item {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.health-up {
+  background: rgba(76, 175, 80, 0.5);
+}
+.health-down {
+  background: rgba(244, 67, 54, 0.55);
+}
+.health-na {
+  opacity: 0.6;
 }
 .queue-stats-panel {
   display: flex;

@@ -14,6 +14,7 @@
     <modules>
         <module>xxx-log-common</module>
         <module>xxx-log-client</module>
+        <module>xxx-log-client-log4j2</module>
         <module>xxx-log-server</module>
         <module>xxx-log-demo</module>
     </modules>
@@ -58,6 +59,11 @@
             <dependency>
                 <groupId>com.xxxlog</groupId>
                 <artifactId>xxx-log-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.xxxlog</groupId>
+                <artifactId>xxx-log-client-log4j2</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

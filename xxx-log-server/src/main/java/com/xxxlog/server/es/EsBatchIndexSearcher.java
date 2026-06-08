@@ -1,6 +1,7 @@
 package com.xxxlog.server.es;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
@@ -8,6 +9,7 @@ import com.xxxlog.common.model.LogRecord;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -55,5 +57,40 @@ public class EsBatchIndexSearcher {
             return 0;
         }
         return response.hits().total().value();
+    }
+
+    public List<Object> extractNextSearchAfter(SearchResponse<LogRecord> response) {
+        if (response == null) {
+            return null;
+        }
+        List<Hit<LogRecord>> hits = response.hits().hits();
+        if (hits.isEmpty()) {
+            return null;
+        }
+        List<FieldValue> sortValues = hits.get(hits.size() - 1).sort();
+        if (sortValues == null || sortValues.isEmpty()) {
+            return null;
+        }
+        List<Object> result = new ArrayList<>(sortValues.size());
+        for (FieldValue sortValue : sortValues) {
+            result.add(toSortValue(sortValue));
+        }
+        return result;
+    }
+
+    private Object toSortValue(FieldValue value) {
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (value.isLong()) {
+            return value.longValue();
+        }
+        if (value.isDouble()) {
+            return value.doubleValue();
+        }
+        if (value.isBoolean()) {
+            return value.booleanValue();
+        }
+        return value.stringValue();
     }
 }

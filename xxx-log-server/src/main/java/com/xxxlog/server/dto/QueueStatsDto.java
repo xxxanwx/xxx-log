@@ -7,6 +7,9 @@ public class QueueStatsDto {
     private long queuePending;
     private long bufferPending;
     private long totalPending;
+    private long threshold;
+    private boolean backlogAlert;
+    private long consumeFailCount;
 
     public String getQueueType() {
         return queueType;
@@ -46,5 +49,29 @@ public class QueueStatsDto {
 
     public void setTotalPending(long totalPending) {
         this.totalPending = totalPending;
+    }
+
+    public long getThreshold() {
+        return threshold;
+    }
+
+    public void setThreshold(long threshold) {
+        this.threshold = threshold;
+    }
+
+    public boolean isBacklogAlert() {
+        return backlogAlert;
+    }
+
+    public void setBacklogAlert(boolean backlogAlert) {
+        this.backlogAlert = backlogAlert;
+    }
+
+    public long getConsumeFailCount() {
+        return consumeFailCount;
+    }
+
+    public void setConsumeFailCount(long consumeFailCount) {
+        this.consumeFailCount = consumeFailCount;
     }
 }

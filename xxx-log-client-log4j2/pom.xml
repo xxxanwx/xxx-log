@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.xxxlog</groupId>
+        <artifactId>xxx-log</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>xxx-log-client-log4j2</artifactId>
+    <name>xxx-log-client-log4j2</name>
+    <description>Log4j2 Appender 采集客户端（JDK 8+）</description>
+
+    <properties>
+        <maven.compiler.source>${client.java.version}</maven.compiler.source>
+        <maven.compiler.target>${client.java.version}</maven.compiler.target>
+        <log4j2.version>2.20.0</log4j2.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.xxxlog</groupId>
+            <artifactId>xxx-log-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j2.version}</version>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>

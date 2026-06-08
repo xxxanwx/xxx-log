@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    {
+      "name": "XxxLog4j2",
+      "class": "com.xxxlog.client.log4j2.XxxLog4j2Appender"
+    }
+  ]
+}

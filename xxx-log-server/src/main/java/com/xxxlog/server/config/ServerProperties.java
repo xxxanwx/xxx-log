@@ -13,8 +13,10 @@ public class ServerProperties {
     private IndexSplitType indexSplitType = IndexSplitType.DAY;
     private QueueType queueType = QueueType.REDIS;
     private String queueKey = "xxx-log:queue";
+    private String deadLetterKey = "xxx-log:dead-letter";
     private int consumeBatchSize = 100;
     private int consumeIntervalMs = 500;
+    private AlertProperties alert = new AlertProperties();
     /** 单次查询允许扫描的最大时间分片数（按天/月） */
     private int maxSearchIndices = 2000;
     private IndexRetentionProperties indexRetention = new IndexRetentionProperties();
@@ -51,6 +53,39 @@ public class ServerProperties {
 
         public void setCron(String cron) {
             this.cron = cron;
+        }
+    }
+
+    public static class AlertProperties {
+        /** 队列积压告警阈值（待处理条数） */
+        private long queueBacklogThreshold = 1000;
+        /** 队列积压告警冷却时间（分钟） */
+        private int queueBacklogCooldownMinutes = 30;
+        /** 队列积压检查间隔（毫秒） */
+        private long queueBacklogCheckIntervalMs = 60000;
+
+        public long getQueueBacklogThreshold() {
+            return queueBacklogThreshold;
+        }
+
+        public void setQueueBacklogThreshold(long queueBacklogThreshold) {
+            this.queueBacklogThreshold = queueBacklogThreshold;
+        }
+
+        public int getQueueBacklogCooldownMinutes() {
+            return queueBacklogCooldownMinutes;
+        }
+
+        public void setQueueBacklogCooldownMinutes(int queueBacklogCooldownMinutes) {
+            this.queueBacklogCooldownMinutes = queueBacklogCooldownMinutes;
+        }
+
+        public long getQueueBacklogCheckIntervalMs() {
+            return queueBacklogCheckIntervalMs;
+        }
+
+        public void setQueueBacklogCheckIntervalMs(long queueBacklogCheckIntervalMs) {
+            this.queueBacklogCheckIntervalMs = queueBacklogCheckIntervalMs;
         }
     }
 
@@ -131,6 +166,22 @@ public class ServerProperties {
 
     public void setQueueKey(String queueKey) {
         this.queueKey = queueKey;
+    }
+
+    public String getDeadLetterKey() {
+        return deadLetterKey;
+    }
+
+    public void setDeadLetterKey(String deadLetterKey) {
+        this.deadLetterKey = deadLetterKey;
+    }
+
+    public AlertProperties getAlert() {
+        return alert;
+    }
+
+    public void setAlert(AlertProperties alert) {
+        this.alert = alert;
     }
 
     public int getConsumeBatchSize() {

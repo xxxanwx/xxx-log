@@ -1,7 +1,5 @@
 package com.xxxlog.server.dto;
 
-import com.xxxlog.common.model.LogRecord;
-
 import java.util.List;
 
 public class PageResult<T> {
@@ -10,6 +8,10 @@ public class PageResult<T> {
     private int page;
     private int size;
     private List<T> records;
+    /** 下一页 search_after 游标 */
+    private List<Object> nextSearchAfter;
+    /** 是否处于深度分页模式 */
+    private boolean deepPagination;
 
     public PageResult() {
     }
@@ -51,5 +53,21 @@ public class PageResult<T> {
 
     public void setRecords(List<T> records) {
         this.records = records;
+    }
+
+    public List<Object> getNextSearchAfter() {
+        return nextSearchAfter;
+    }
+
+    public void setNextSearchAfter(List<Object> nextSearchAfter) {
+        this.nextSearchAfter = nextSearchAfter;
+    }
+
+    public boolean isDeepPagination() {
+        return deepPagination;
+    }
+
+    public void setDeepPagination(boolean deepPagination) {
+        this.deepPagination = deepPagination;
     }
 }

@@ -1,6 +1,7 @@
 package com.xxxlog.server.consumer;
 
 import com.xxxlog.server.config.ServerProperties;
+import com.xxxlog.server.metrics.ConsumeMetrics;
 import com.xxxlog.server.redis.RedisDistributedLock;
 import com.xxxlog.server.service.LogBatchWriter;
 import jakarta.annotation.PostConstruct;
@@ -25,15 +26,18 @@ public class RedisLogConsumer {
     private final ServerProperties properties;
     private final LogBatchWriter logBatchWriter;
     private final RedisDistributedLock distributedLock;
+    private final ConsumeMetrics consumeMetrics;
 
     public RedisLogConsumer(StringRedisTemplate redisTemplate,
                             ServerProperties properties,
                             LogBatchWriter logBatchWriter,
-                            RedisDistributedLock distributedLock) {
+                            RedisDistributedLock distributedLock,
+                            ConsumeMetrics consumeMetrics) {
         this.redisTemplate = redisTemplate;
         this.properties = properties;
         this.logBatchWriter = logBatchWriter;
         this.distributedLock = distributedLock;
+        this.consumeMetrics = consumeMetrics;
     }
 
     @PostConstruct
@@ -61,10 +65,24 @@ public class RedisLogConsumer {
                 batch.add(json);
             }
             if (!batch.isEmpty()) {
-                logBatchWriter.writeBatch(batch);
-                log.info("Consumed {} message(s) from Redis queue [{}]", batch.size(), queueKey);
+                try {
+                    logBatchWriter.writeBatch(batch);
+                    log.info("Consumed {} message(s) from Redis queue [{}]", batch.size(), queueKey);
+                } catch (Exception e) {
+                    log.error("Failed to write batch to ES, pushing to dead-letter queue", e);
+                    pushToDeadLetter(batch);
+                    consumeMetrics.incrementFailCount(batch.size());
+                }
             }
         });
+    }
+
+    private void pushToDeadLetter(List<String> batch) {
+        String deadLetterKey = properties.getDeadLetterKey();
+        for (String json : batch) {
+            redisTemplate.opsForList().leftPush(deadLetterKey, json);
+        }
+        log.warn("Pushed {} message(s) to dead-letter key [{}]", batch.size(), deadLetterKey);
     }
 
     @PreDestroy

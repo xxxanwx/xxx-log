@@ -2,7 +2,9 @@ package com.xxxlog.server.service;
 
 import com.xxxlog.common.model.LogRecord;
 import com.xxxlog.common.util.JsonUtil;
+import com.xxxlog.common.util.LogRecordIdResolver;
 import com.xxxlog.server.dingtalk.DingTalkAlertService;
+import com.xxxlog.server.dto.WriteBatchResult;
 import com.xxxlog.server.es.EsLogWriter;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -41,27 +43,31 @@ public class LogBatchWriter {
     /**
      * 单条日志直接写入 ES（RabbitMQ 消费端）。
      */
-    public void writeJson(String json) {
-        writeBatch(json == null ? List.of() : List.of(json));
+    public WriteBatchResult writeJson(String json) {
+        return writeBatch(json == null ? List.of() : List.of(json));
     }
 
     /**
      * 批量日志直接写入 ES（Redis 定时消费端）。
      */
-    public void writeBatch(List<String> jsonList) {
+    public WriteBatchResult writeBatch(List<String> jsonList) {
         if (!indexReady || jsonList == null || jsonList.isEmpty()) {
-            return;
+            return new WriteBatchResult(0, 0, 0);
         }
         List<LogRecord> records = new ArrayList<>(jsonList.size());
+        int skipped = 0;
         for (String json : jsonList) {
             if (json == null || json.isBlank()) {
+                skipped++;
                 continue;
             }
             try {
                 LogRecord record = JsonUtil.fromJson(json, LogRecord.class);
+                LogRecordIdResolver.ensureId(record);
                 records.add(record);
                 dingTalkAlertService.ifAvailable(service -> service.onLogIngested(record));
             } catch (Exception e) {
+                skipped++;
                 log.warn("Invalid log message skipped: {}", e.getMessage());
             }
         }
@@ -69,5 +75,6 @@ public class LogBatchWriter {
             esLogWriter.bulkWrite(records);
             log.info("Wrote {} log record(s) to ES", records.size());
         }
+        return new WriteBatchResult(records.size(), skipped, jsonList.size());
     }
 }

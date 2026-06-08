@@ -7,6 +7,11 @@
             <el-option v-for="app in apps" :key="app" :label="app" :value="app" />
           </el-select>
         </el-form-item>
+        <el-form-item label="环境">
+          <el-select v-model="query.env" clearable placeholder="全部环境" style="width: 140px">
+            <el-option v-for="env in envs" :key="env" :label="env" :value="env" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="TraceId">
           <el-input v-model="query.traceId" clearable placeholder="链路ID" style="width: 320px" />
         </el-form-item>
@@ -50,13 +55,16 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" @click="handleSearch">查询</el-button>
+          <el-button type="primary" :loading="loading" @click="handleSearch(true)">查询</el-button>
           <el-button @click="resetQuery">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
 
     <el-card shadow="never" class="table-card">
+      <div v-if="deepMode" class="deep-pagination-tip">
+        深度分页模式：使用游标翻页（超过 10000 条 offset 限制）
+      </div>
       <div class="table-wrapper">
         <el-table
           :data="records"
@@ -77,6 +85,7 @@
             </template>
           </el-table-column>
           <el-table-column prop="appName" label="应用" width="120" />
+          <el-table-column prop="env" label="环境" width="90" />
           <el-table-column prop="traceId" label="TraceId" width="220" show-overflow-tooltip>
             <template #default="{ row }">
               <el-link
@@ -95,9 +104,12 @@
           <el-table-column prop="className" label="类名" min-width="180" show-overflow-tooltip />
           <el-table-column prop="message" label="日志内容" min-width="520">
             <template #default="{ row }">
-              <span class="message-cell" title="双击查看详情" @dblclick="showDetail(row)">
-                {{ row.message }}
-              </span>
+              <span
+                class="message-cell"
+                title="双击查看详情"
+                @dblclick="showDetail(row)"
+                v-html="highlightMessage(row.message)"
+              ></span>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="80" fixed="right">
@@ -115,8 +127,8 @@
           :total="total"
           :page-sizes="[20, 50, 100]"
           layout="total, sizes, prev, pager, next"
-          @size-change="handleSearch"
-          @current-change="handleSearch"
+          @size-change="onSizeChange"
+          @current-change="onPageChange"
         />
       </div>
     </el-card>
@@ -126,6 +138,7 @@
         <el-descriptions-item label="时间">{{ formatTime(currentLog.timestamp) }}</el-descriptions-item>
         <el-descriptions-item label="级别">{{ currentLog.level }}</el-descriptions-item>
         <el-descriptions-item label="应用">{{ currentLog.appName }}</el-descriptions-item>
+        <el-descriptions-item label="环境">{{ currentLog.env || '-' }}</el-descriptions-item>
         <el-descriptions-item label="TraceId">
           <el-link
             v-if="currentLog.traceId"
@@ -145,7 +158,7 @@
           {{ currentLog.className }}.{{ currentLog.methodName }}
         </el-descriptions-item>
         <el-descriptions-item label="内容">
-          <pre class="log-content">{{ currentLog.message }}</pre>
+          <pre class="log-content" v-html="highlightMessage(currentLog.message)"></pre>
         </el-descriptions-item>
         <el-descriptions-item v-if="currentLog.stackTrace" label="堆栈">
           <pre class="stack-trace">{{ currentLog.stackTrace }}</pre>
@@ -159,20 +172,27 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { searchLogs, listApps } from '../api/log'
+import { searchLogs, listApps, listEnvs } from '../api/log'
+import { highlightKeywords } from '../utils/highlight'
 
+const MAX_OFFSET = 10000
 const router = useRouter()
 const loading = ref(false)
 const records = ref([])
 const total = ref(0)
 const apps = ref([])
+const envs = ref([])
 const timeRange = ref(null)
 const drawerVisible = ref(false)
 const currentLog = ref(null)
 const tableHeight = ref(480)
+const deepMode = ref(false)
+const nextSearchAfter = ref(null)
+const cursorStack = ref([])
 
 const query = reactive({
   appName: '',
+  env: '',
   traceId: '',
   level: '',
   keywords: [],
@@ -232,23 +252,44 @@ function updateTableHeight() {
   tableHeight.value = Math.max(window.innerHeight - 280, 320)
 }
 
+function resetCursorState() {
+  deepMode.value = false
+  nextSearchAfter.value = null
+  cursorStack.value = []
+}
+
+function needsCursorPagination(page, size) {
+  return (page - 1) * size + size > MAX_OFFSET
+}
+
+function highlightMessage(message) {
+  const keywords = (query.keywords || []).map((item) => String(item).trim()).filter(Boolean)
+  return highlightKeywords(message, keywords)
+}
+
 onMounted(async () => {
   updateTableHeight()
   window.addEventListener('resize', updateTableHeight)
   timeRange.value = defaultTimeRange()
-  apps.value = await listApps()
-  handleSearch()
+  const [appList, envList] = await Promise.all([listApps(), listEnvs()])
+  apps.value = appList
+  envs.value = envList
+  handleSearch(true)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateTableHeight)
 })
 
-async function handleSearch() {
+async function handleSearch(resetCursor = false) {
   if (!timeRange.value || timeRange.value.length !== 2) {
     ElMessage.warning('请选择查询时间范围')
     return
   }
+  if (resetCursor) {
+    resetCursorState()
+  }
+
   loading.value = true
   try {
     const params = {
@@ -257,9 +298,28 @@ async function handleSearch() {
       startTime: toTimestamp(timeRange.value[0]),
       endTime: toTimestamp(timeRange.value[1])
     }
+
+    const useCursor = deepMode.value || needsCursorPagination(query.page, query.size)
+    if (useCursor) {
+      deepMode.value = true
+      const cursor = cursorStack.value[query.page - 1] || null
+      if (cursor) {
+        params.searchAfter = cursor
+      } else if (query.page > 1) {
+        ElMessage.warning('请从上一页继续翻页以获取游标')
+        loading.value = false
+        return
+      }
+    }
+
     const result = await searchLogs(params)
     records.value = result.records || []
     total.value = result.total || 0
+    deepMode.value = result.deepPagination || deepMode.value
+    nextSearchAfter.value = result.nextSearchAfter || null
+    if (result.nextSearchAfter) {
+      cursorStack.value[query.page] = result.nextSearchAfter
+    }
   } catch (e) {
     ElMessage.error(e.message || '查询失败')
   } finally {
@@ -267,8 +327,19 @@ async function handleSearch() {
   }
 }
 
+function onSizeChange() {
+  query.page = 1
+  handleSearch(true)
+}
+
+function onPageChange(page) {
+  query.page = page
+  handleSearch(false)
+}
+
 function resetQuery() {
   query.appName = ''
+  query.env = ''
   query.traceId = ''
   query.level = ''
   query.keywords = []
@@ -276,7 +347,7 @@ function resetQuery() {
   query.page = 1
   query.sortOrder = 'desc'
   timeRange.value = defaultTimeRange()
-  handleSearch()
+  handleSearch(true)
 }
 
 function handleSortChange({ prop, order }) {
@@ -285,7 +356,7 @@ function handleSortChange({ prop, order }) {
   }
   query.sortOrder = order === 'ascending' ? 'asc' : 'desc'
   query.page = 1
-  handleSearch()
+  handleSearch(true)
 }
 
 function formatTime(ts) {
@@ -306,13 +377,16 @@ function filterByTraceId(row) {
   if (row.appName) {
     query.appName = row.appName
   }
+  if (row.env) {
+    query.env = row.env
+  }
   if (row.timestamp && timeRange.value) {
     const ts = Number(row.timestamp)
     const pad = 30 * 60 * 1000
     timeRange.value = [new Date(ts - pad), new Date(ts + pad)]
   }
   query.page = 1
-  handleSearch()
+  handleSearch(true)
   ElMessage.success('已按 TraceId 筛选链路日志')
 }
 
@@ -387,6 +461,12 @@ function showDetail(row) {
   flex-direction: column;
   padding-bottom: 12px;
 }
+.deep-pagination-tip {
+  font-size: 12px;
+  color: #e65100;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
 .table-wrapper {
   flex: 1;
   min-height: 0;
@@ -418,12 +498,22 @@ function showDetail(row) {
 .message-cell:hover {
   color: #1a73e8;
 }
+.message-cell :deep(.kw-highlight) {
+  background: #fff59d;
+  color: #333;
+  padding: 0 2px;
+  border-radius: 2px;
+}
 .log-content, .stack-trace {
   white-space: pre-wrap;
   word-break: break-all;
   font-size: 13px;
   line-height: 1.6;
   margin: 0;
+}
+.log-content :deep(.kw-highlight) {
+  background: #fff59d;
+  padding: 0 2px;
 }
 .stack-trace {
   color: #c62828;

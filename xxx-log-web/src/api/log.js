@@ -67,8 +67,32 @@ export function listApps() {
   return http.get('/logs/apps')
 }
 
+export function listEnvs() {
+  return http.get('/logs/envs')
+}
+
 export function getQueueStats() {
   return http.get('/logs/queue/stats')
+}
+
+export function getHealth() {
+  return http.get('/health')
+}
+
+export function getDashboardOverview(startTime, endTime) {
+  return http.get('/dashboard/overview', { params: { startTime, endTime } })
+}
+
+export function getErrorTrend(startTime, endTime, interval = 'hour') {
+  return http.get('/dashboard/error-trend', { params: { startTime, endTime, interval } })
+}
+
+export function getIngestTrend(startTime, endTime, interval = 'hour') {
+  return http.get('/dashboard/ingest-trend', { params: { startTime, endTime, interval } })
+}
+
+export function getTopErrors(startTime, endTime, limit = 10) {
+  return http.get('/dashboard/top-errors', { params: { startTime, endTime, limit } })
 }
 
 export function listLogIndices() {

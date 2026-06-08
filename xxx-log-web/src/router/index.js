@@ -2,12 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { isLoggedIn } from '../utils/auth'
 import LogSearch from '../views/LogSearch.vue'
 import TraceDetail from '../views/TraceDetail.vue'
+import Dashboard from '../views/Dashboard.vue'
 import Login from '../views/Login.vue'
 
 const routes = [
   { path: '/login', component: Login, meta: { public: true } },
   { path: '/', redirect: '/logs' },
   { path: '/logs', component: LogSearch, meta: { requiresAuth: true } },
+  { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
   { path: '/trace/:traceId', component: TraceDetail, props: true, meta: { requiresAuth: true } }
 ]
 

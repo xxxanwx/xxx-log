@@ -10,12 +10,13 @@ import com.xxxlog.client.sender.RedisLogSender;
 import com.xxxlog.common.constant.LogConstants;
 import com.xxxlog.common.enums.QueueType;
 import com.xxxlog.common.model.LogRecord;
+import com.xxxlog.common.sampling.LogSamplingPolicy;
+import com.xxxlog.common.util.LogRecordIdResolver;
 import com.xxxlog.common.util.StringUtil;
 
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Logback Appender，将日志异步推送到 Redis 或 RabbitMQ 队列。
@@ -38,8 +39,10 @@ public class XxxLogAppender extends AppenderBase<ILoggingEvent> {
     private String rabbitmqPassword = "guest";
     private String rabbitmqVirtualHost = "/";
     private String rabbitmqQueue = LogConstants.DEFAULT_RABBITMQ_QUEUE;
+    private int sampleRate = 100;
 
     private volatile LogSender logSender;
+    private volatile LogSamplingPolicy samplingPolicy;
     private volatile String serverIp;
 
     @Override
@@ -50,6 +53,7 @@ public class XxxLogAppender extends AppenderBase<ILoggingEvent> {
         }
         try {
             logSender = createLogSender();
+            samplingPolicy = new LogSamplingPolicy(sampleRate);
         } catch (Exception e) {
             addError("Failed to create log sender", e);
             return;
@@ -99,7 +103,10 @@ public class XxxLogAppender extends AppenderBase<ILoggingEvent> {
 
     @Override
     protected void append(ILoggingEvent event) {
-        if (!isStarted() || logSender == null) {
+        if (!isStarted() || logSender == null || samplingPolicy == null) {
+            return;
+        }
+        if (!samplingPolicy.shouldPass(event.getLevel().toString())) {
             return;
         }
         try {
@@ -111,7 +118,6 @@ public class XxxLogAppender extends AppenderBase<ILoggingEvent> {
 
     private LogRecord buildRecord(ILoggingEvent event) {
         LogRecord record = new LogRecord();
-        record.setId(UUID.randomUUID().toString().replace("-", ""));
         record.setAppName(appName);
         record.setEnv(env);
         record.setServerIp(serverIp);
@@ -139,6 +145,7 @@ public class XxxLogAppender extends AppenderBase<ILoggingEvent> {
         if (throwable != null) {
             record.setStackTrace(ThrowableProxyUtil.asString(throwable));
         }
+        LogRecordIdResolver.ensureId(record);
         return record;
     }
 
@@ -196,5 +203,9 @@ public class XxxLogAppender extends AppenderBase<ILoggingEvent> {
 
     public void setRabbitmqQueue(String rabbitmqQueue) {
         this.rabbitmqQueue = rabbitmqQueue;
+    }
+
+    public void setSampleRate(int sampleRate) {
+        this.sampleRate = sampleRate;
     }
 }

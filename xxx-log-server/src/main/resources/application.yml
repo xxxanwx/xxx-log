@@ -41,9 +41,18 @@ xxx-log:
   queue-type: redis
   # Redis 列表 key，客户端 XxxLogAppender 的 queueKey 需与此一致
   queue-key: xxx-log:queue
+  # 消费失败时写入的死信队列 key（Redis 模式）
+  dead-letter-key: xxx-log:dead-letter
   rabbitmq:
     # RabbitMQ 队列名，queue-type=rabbitmq 时生效
     queue: xxx-log.queue
+    # 死信队列名
+    dead-letter-queue: xxx-log.dlq
+  # 队列积压与消费告警
+  alert:
+    queue-backlog-threshold: 1000
+    queue-backlog-cooldown-minutes: 30
+    queue-backlog-check-interval-ms: 60000
   # 每次从队列拉取的最大条数
   consume-batch-size: 100
   # 消费轮询间隔（毫秒）

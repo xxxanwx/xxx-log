@@ -44,8 +44,11 @@ public class EsLogWriter {
                         .filter(item -> item.error() != null)
                         .map(item -> item.error().reason())
                         .collect(Collectors.toList());
-                log.warn("ES bulk write partial errors: {}", errors);
+                log.error("ES bulk write errors: {}", errors);
+                throw new IllegalStateException("ES bulk write failed: " + errors);
             }
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             log.error("ES bulk write failed", e);
             throw new IllegalStateException("ES bulk write failed", e);
@@ -70,7 +73,9 @@ public class EsLogWriter {
                                     .properties("className", p -> p.keyword(k -> k))
                                     .properties("methodName", p -> p.keyword(k -> k))
                                     .properties("level", p -> p.keyword(k -> k))
-                                    .properties("message", p -> p.text(txt -> txt.analyzer("standard")))
+                                    .properties("message", p -> p.text(txt -> txt
+                                            .analyzer("standard")
+                                            .fields("keyword", f -> f.keyword(k -> k.ignoreAbove(512)))))
                                     .properties("stackTrace", p -> p.text(txt -> txt.analyzer("standard")))
                                     .properties("timestamp", p -> p.long_(l -> l))
                                     .properties("mdc", p -> p.object(o -> o.enabled(true)))
