@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="appName" source="xxx-log.app-name" defaultValue="unknown"/>
+    <springProperty scope="context" name="envName" source="xxx-log.env" defaultValue="default"/>
+    <springProperty scope="context" name="queueType" source="xxx-log.queue-type" defaultValue="redis"/>
+
+    <!-- Redis（application.yml -> xxx-log.redis-*） -->
+    <springProperty scope="context" name="redisHost" source="xxx-log.redis-host" defaultValue="127.0.0.1"/>
+    <springProperty scope="context" name="redisPort" source="xxx-log.redis-port" defaultValue="6379"/>
+    <springProperty scope="context" name="redisDatabase" source="xxx-log.redis-database" defaultValue="0"/>
+    <springProperty scope="context" name="redisPassword" source="xxx-log.redis-password" defaultValue=""/>
+
+    <!-- RabbitMQ（application.yml -> xxx-log.rabbitmq-*，默认注释时使用下方 defaultValue） -->
+    <springProperty scope="context" name="rabbitmqHost" source="xxx-log.rabbitmq-host" defaultValue="127.0.0.1"/>
+    <springProperty scope="context" name="rabbitmqPort" source="xxx-log.rabbitmq-port" defaultValue="5672"/>
+    <springProperty scope="context" name="rabbitmqUsername" source="xxx-log.rabbitmq-username" defaultValue="guest"/>
+    <springProperty scope="context" name="rabbitmqPassword" source="xxx-log.rabbitmq-password" defaultValue="guest"/>
+    <springProperty scope="context" name="rabbitmqVirtualHost" source="xxx-log.rabbitmq-virtual-host" defaultValue="/"/>
+    <springProperty scope="context" name="rabbitmqQueue" source="xxx-log.rabbitmq-queue" defaultValue="xxx-log.queue"/>
+
+    <property name="CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- queue-type 由 application.yml 的 xxx-log.queue-type 控制（redis | rabbitmq） -->
+    <appender name="XXX_LOG" class="com.xxxlog.client.appender.XxxLogAppender">
+        <appName>${appName}</appName>
+        <env>${envName}</env>
+        <queueType>${queueType}</queueType>
+        <redisHost>${redisHost}</redisHost>
+        <redisPort>${redisPort}</redisPort>
+        <redisDatabase>${redisDatabase}</redisDatabase>
+        <redisPassword>${redisPassword}</redisPassword>
+        <queueKey>xxx-log:queue</queueKey>
+        <rabbitmqHost>${rabbitmqHost}</rabbitmqHost>
+        <rabbitmqPort>${rabbitmqPort}</rabbitmqPort>
+        <rabbitmqUsername>${rabbitmqUsername}</rabbitmqUsername>
+        <rabbitmqPassword>${rabbitmqPassword}</rabbitmqPassword>
+        <rabbitmqVirtualHost>${rabbitmqVirtualHost}</rabbitmqVirtualHost>
+        <rabbitmqQueue>${rabbitmqQueue}</rabbitmqQueue>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="XXX_LOG"/>
+    </root>
+
+    <logger name="com.xxxlog" level="DEBUG"/>
+</configuration>

@@ -1,0 +1,116 @@
+# HTTP 服务端口（前端 xxx-log-web 通过代理访问 /api -> 8899）
+server:
+  port: 8899
+
+spring:
+  application:
+    name: xxx-log-server
+
+  # Redis：日志队列（queue-type=redis 时）+ 登录 Token 存储，始终需要配置
+  data:
+    redis:
+      host:
+      port: 6333
+      database: 47
+      # 含 @、& 等特殊字符时需用双引号包裹
+      password: ""
+
+  # RabbitMQ：仅 queue-type=rabbitmq 时用于消费日志；与 Redis 队列二选一
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: admin
+    password: rabbit123
+
+  # Elasticsearch：日志持久化与检索
+  elasticsearch:
+    uris: http://
+    username: elastic
+    # 含 #、|、< 等特殊字符时建议用单引号包裹
+    password: ''
+
+# xxx-log 服务端业务配置
+xxx-log:
+  # ES 索引名前缀，实际索引形如 xxx-log-{appName}-{时间后缀}
+  index-prefix: xxx-log
+  # 索引按时间拆分粒度：HOUR | DAY | MONTH（查询时按此规则 + 时间范围拼具体索引名，不用通配符）
+  index-split-type: HOUR
+  # 单次查询最多扫描的索引数量（时间范围 × 应用数），超出需缩小范围
+  max-search-indices: 2000
+  # 队列类型：redis | rabbitmq（改此项即可切换，客户端 logback 中 queueType 需与此一致）
+  queue-type: redis
+  # Redis 列表 key，客户端 XxxLogAppender 的 queueKey 需与此一致
+  queue-key: xxx-log:queue
+  rabbitmq:
+    # RabbitMQ 队列名，queue-type=rabbitmq 时生效
+    queue: xxx-log.queue
+  # 每次从队列拉取的最大条数
+  consume-batch-size: 100
+  # 消费轮询间隔（毫秒）
+  consume-interval-ms: 5000
+  # 集群分布式锁（Redis SET NX EX，Redis 消费 / 钉钉日总结）
+  lock:
+    prefix: xxx-log:lock
+    redis-consume-ttl-seconds: 30
+    daily-summary-ttl-seconds: 300
+    index-retention-ttl-seconds: 600
+
+  # 日志索引保留策略（过期自动删除，默认每天 02:00 执行）
+  index-retention:
+    enabled: true
+    days: 30
+    cron: "0 0 2 * * ?"
+
+  # Web 控制台登录鉴权（xxx-log-web 使用）
+  auth:
+    username: admin
+    password: admin123
+    # Token 有效期（小时），过期后需重新登录
+    token-expire-hours: 24
+
+  # 钉钉机器人通知（enabled=true 且配置 webhook 后生效）
+  dingtalk:
+    enabled: true
+    # 机器人 Webhook 地址（钉钉群 -> 智能群助手 -> 自定义机器人）
+    webhook-url: https://oapi.dingtalk.com/robot/send?access_token=
+    # 加签密钥（机器人安全设置选「加签」时填写；未启用加签可留空）
+    secret: "SEC8a6ce40c08dd281c4c2c6ab60081e9c844c4daf7b7cfdcc2bbb60dbc27e77743"
+
+    # 日总结：统计昨日 ERROR 数量并推送
+    daily-summary:
+      enabled: true
+      # Cron 表达式，默认每天 09:00
+      cron: "0 0 9 * * ?"
+
+    # ERROR 实时告警
+    error-alert:
+      enabled: true
+      # 推送策略：
+      #   ALL — 所有 ERROR 都推送（仍受 blacklist-keywords 过滤）
+      #   KEYWORD — 仅命中 keywords 时推送（推荐，避免刷屏）
+      #   BLACKLIST — 除黑名单外所有 ERROR 都推送
+      strategy: KEYWORD
+      # KEYWORD 模式：message / stackTrace / 类名 包含任一关键词才推送
+      keywords:
+        - NullPointerException
+        - 支付失败
+        - OutOfMemoryError
+        - 保存订单
+      # 黑名单：命中则不推送（三种策略均生效，可过滤「模拟异常」等噪声）
+      blacklist-keywords:
+        - 模拟业务异常
+      # 限定应用（为空=全部应用）
+      app-names: []
+      # 相同内容最短推送间隔（秒），防止同类错误刷屏
+      min-interval-seconds: 60
+      max-message-length: 500
+      include-stack-trace: true
+
+logging:
+  # server 运行日志仅写本地磁盘，不采集到 ES（业务应用日志由客户端 XxxLogAppender 上报）
+  file:
+    path: logs
+  level:
+    com.xxxlog: INFO
+    # 排查钉钉未推送时可改为 DEBUG
+    com.xxxlog.server.dingtalk: INFO

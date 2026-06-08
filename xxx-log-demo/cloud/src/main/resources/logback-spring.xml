@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="appName" source="xxx-log.app-name" defaultValue="unknown"/>
+    <springProperty scope="context" name="envName" source="xxx-log.env" defaultValue="default"/>
+    <springProperty scope="context" name="redisHost" source="xxx-log.redis-host" defaultValue="127.0.0.1"/>
+    <springProperty scope="context" name="redisPort" source="xxx-log.redis-port" defaultValue="6379"/>
+    <springProperty scope="context" name="redisPassword" source="xxx-log.redis-password" defaultValue=""/>
+
+    <property name="CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="XXX_LOG" class="com.xxxlog.client.appender.XxxLogAppender">
+        <appName>${appName}</appName>
+        <env>${envName}</env>
+        <queueType>redis</queueType>
+        <redisHost>${redisHost}</redisHost>
+        <redisPort>${redisPort}</redisPort>
+        <redisPassword>${redisPassword}</redisPassword>
+        <queueKey>xxx-log:queue</queueKey>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="XXX_LOG"/>
+    </root>
+
+    <logger name="com.xxxlog" level="DEBUG"/>
+</configuration>

@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: xxx-log-demo-boot
+
+xxx-log:
+  trace-enabled: true
+  trace-mode: native
+  app-name: demo-app
+  env: dev
+  # 队列类型：redis | rabbitmq（需与 xxx-log-server 的 queue-type 一致）
+  queue-type: redis
+
+  # ---------- Redis 队列模式（queue-type=redis 时生效）----------
+  redis-host:
+  redis-port: 6333
+  redis-database: 47
+  # 含特殊字符的密码请用单引号或双引号包裹
+  redis-password: ''
+
+  # ---------- RabbitMQ 队列模式（示例，启用时改 queue-type=rabbitmq ）----------
+  rabbitmq-host: 127.0.0.1
+  rabbitmq-port: 5672
+  rabbitmq-username: admin
+  rabbitmq-password: rabbit123
+  rabbitmq-virtual-host: /
+  rabbitmq-queue: xxx-log.queue
+
+logging:
+  config: classpath:logback-spring.xml

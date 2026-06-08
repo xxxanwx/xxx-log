@@ -1,0 +1,11 @@
+target/
+.idea/
+*.iml
+*.class
+*.jar
+*.war
+.DS_Store
+
+# 运行时日志（服务端 logback 写入，不纳入版本库）
+logs/
+*.log
